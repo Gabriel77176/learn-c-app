@@ -15,16 +15,14 @@ const config: Config = {
   },
 
   // Set the production url of your site here
-  url: 'https://learnc.lessons.gabriellelgris.fr',
-  // Set the /<baseUrl>/ pathname under which your site is served
-  // For GitHub pages deployment, it is often '/<projectName>/'
-  baseUrl: '/',
+  url: 'https://learnc.lessons.gabriellegris.fr', // ton domaine
+  baseUrl: '/',                                   // racine du domaine
+  trailingSlash: false,
 
   // GitHub pages deployment config.
   // If you aren't using GitHub pages, you don't need these.
-  organizationName: 'facebook', // Usually your GitHub org/user name.
+  organizationName: 'gabriellegris', // Usually your GitHub org/user name.
   projectName: 'learn-c-app', // Usually your repo name.
-  trailingSlash: false,
 
   onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
