@@ -2,7 +2,7 @@
   "name": "learn-c-app",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://USERNAME.github.io/learn-c-app",
+  "homepage": "https://learnc.lessons.gabriellegris.fr",
   "dependencies": {
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.1",
