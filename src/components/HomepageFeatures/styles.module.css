@@ -1,11 +1,46 @@
 .features {
-  display: flex;
-  align-items: center;
-  padding: 2rem 0;
-  width: 100%;
+  padding: 4rem 0;
+  background-color: #f8f9fa;
 }
 
-.featureSvg {
-  height: 200px;
-  width: 200px;
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+.featuresGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.feature {
+  background: white;
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.featureIcon {
+  margin-bottom: 1rem;
+}
+
+.icon {
+  font-size: 3rem;
+  display: block;
+}
+
+.featureContent h3 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.featureContent p {
+  margin: 0;
+  color: #666;
+  line-height: 1.6;
 }
