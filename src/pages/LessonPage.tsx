@@ -25,6 +25,8 @@ import ExerciseCard from '../components/Exercise/ExerciseCard';
 interface ExerciseWithSubmission extends Exercise {
   isCompleted: boolean;
   userGrade?: number;
+  submissionCount: number;
+  lastSubmissionId?: string;
 }
 
 const LessonPage: React.FC = () => {
@@ -42,7 +44,8 @@ const LessonPage: React.FC = () => {
     if (lessonId) {
       loadLessonData();
     }
-  }, [lessonId, currentUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lessonId, currentUser]); // loadLessonData is stable and doesn't need to be in deps
 
   const loadLessonData = async () => {
     try {
@@ -82,18 +85,25 @@ const LessonPage: React.FC = () => {
         const exercisesWithStatus = await Promise.all(
           exercisesData.map(async (exercise) => {
             const submissions = await submissionService.getSubmissionsByExercise(exercise.id);
-            const userSubmission = submissions.find(s => s.studentId === currentUser.id);
+            const userSubmissions = submissions.filter(s => s.studentId === currentUser.id);
             
             return {
               ...exercise,
-              isCompleted: !!userSubmission,
-              userGrade: undefined // TODO: Load grade if exists
+              isCompleted: userSubmissions.length > 0,
+              userGrade: undefined, // TODO: Load grade if exists
+              submissionCount: userSubmissions.length,
+              lastSubmissionId: userSubmissions.length > 0 ? userSubmissions[0].id : undefined
             };
           })
         );
         setExercises(exercisesWithStatus);
       } else {
-        setExercises(exercisesData.map(ex => ({ ...ex, isCompleted: false })));
+        setExercises(exercisesData.map(ex => ({ 
+          ...ex, 
+          isCompleted: false, 
+          submissionCount: 0,
+          lastSubmissionId: undefined 
+        })));
       }
     } catch (error) {
       console.error('Error loading lesson data:', error);
@@ -228,6 +238,8 @@ const LessonPage: React.FC = () => {
                 onDelete={isTeacher ? () => handleDeleteExercise(exercise.id) : undefined}
                 isCompleted={exercise.isCompleted}
                 userGrade={exercise.userGrade}
+                submissionCount={exercise.submissionCount}
+                lastSubmissionId={exercise.lastSubmissionId}
               />
             </Grid>
           ))}

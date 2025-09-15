@@ -265,7 +265,7 @@ const Dashboard: React.FC = () => {
               <Button
                 fullWidth
                 sx={{ mt: 2 }}
-                onClick={() => navigate('/lessons')}
+                onClick={() => navigate('/all-lessons')}
               >
                 Voir toutes les leçons
               </Button>

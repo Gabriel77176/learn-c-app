@@ -39,12 +39,14 @@ const AllLessons: React.FC = () => {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadData = async () => {
     try {
       setLoading(true);
       console.log('Loading all lessons and subjects...');
+      console.log('Current user:', currentUser);
+      console.log('User role:', currentUser?.role);
       
       const [lessonsData, subjectsData] = await Promise.all([
         lessonService.getAllLessons(),
@@ -52,12 +54,17 @@ const AllLessons: React.FC = () => {
       ]);
       
       console.log('Lessons loaded:', lessonsData.length);
+      console.log('Lessons data:', lessonsData);
       console.log('Subjects loaded:', subjectsData.length);
+      console.log('Subjects data:', subjectsData);
       
       setLessons(lessonsData);
       setSubjects(subjectsData);
     } catch (error) {
       console.error('Error loading data:', error);
+      console.error('Error details:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      alert(`Error loading data: ${errorMessage}`);
     } finally {
       setLoading(false);
     }

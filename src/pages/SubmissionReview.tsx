@@ -8,19 +8,18 @@ import {
   Rating,
   TextField,
   Chip,
-  Divider,
   Alert,
   CircularProgress,
   Card,
   CardContent,
   CardActions
 } from '@mui/material';
-import { ArrowBack, Save, Visibility, Code, Quiz, Description } from '@mui/icons-material';
+import { ArrowBack, Save, Code, Quiz, Description } from '@mui/icons-material';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import ReactMarkdown from 'react-markdown';
 import { useAuth } from '../contexts/AuthContext';
-import { submissionService, exerciseService, userService } from '../services/firebase';
+import { submissionService, exerciseService, userService, gradeService } from '../services/firebase';
 import { Submission, Exercise, User } from '../types';
 
 const SubmissionReview: React.FC = () => {
@@ -35,7 +34,7 @@ const SubmissionReview: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   
-  const [grade, setGrade] = useState(0);
+  const [grade, setGrade] = useState(1);
   const [feedback, setFeedback] = useState('');
 
   const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'admin';
@@ -45,7 +44,8 @@ const SubmissionReview: React.FC = () => {
     if (submissionId) {
       loadSubmissionData();
     }
-  }, [submissionId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [submissionId]); // loadSubmissionData doesn't depend on external state
 
   const loadSubmissionData = async () => {
     try {
@@ -77,7 +77,16 @@ const SubmissionReview: React.FC = () => {
       setStudent(studentData);
 
       // Load existing grade if any
-      // TODO: Implement grade retrieval if grades are stored separately
+      try {
+        const existingGrade = await gradeService.getGradeBySubmission(submissionData.id);
+        if (existingGrade) {
+          setGrade(existingGrade.grade);
+          setFeedback(existingGrade.feedback || '');
+        }
+      } catch (error) {
+        console.error('Error loading grade:', error);
+        // Continue without grade - it's not critical
+      }
 
     } catch (error: any) {
       console.error('Error loading submission data:', error);
@@ -88,12 +97,31 @@ const SubmissionReview: React.FC = () => {
   };
 
   const handleSaveGrade = async () => {
-    if (!submission) return;
+    if (!submission || !currentUser) return;
 
     try {
       setSaving(true);
-      // TODO: Implement grade saving
-      // await submissionService.saveGrade(submission.id, grade, feedback);
+      
+      // Check if grade already exists
+      const existingGrade = await gradeService.getGradeBySubmission(submission.id);
+      
+      if (existingGrade) {
+        // Update existing grade
+        await gradeService.updateGrade(existingGrade.id, {
+          grade,
+          feedback: feedback.trim() || undefined,
+          teacherId: currentUser.id
+        });
+      } else {
+        // Create new grade
+        await gradeService.createGrade({
+          submissionId: submission.id,
+          teacherId: currentUser.id,
+          grade,
+          feedback: feedback.trim() || undefined
+        });
+      }
+      
       alert('Note sauvegardée avec succès !');
     } catch (error: any) {
       console.error('Error saving grade:', error);
@@ -345,17 +373,17 @@ const SubmissionReview: React.FC = () => {
                 
                 <Box sx={{ mb: 3 }}>
                   <Typography variant="body1" gutterBottom>
-                    Note sur 20 :
+                    Évaluation (1-5 étoiles) :
                   </Typography>
                   <Rating
                     value={grade}
-                    onChange={(_, newValue) => setGrade(newValue || 0)}
-                    max={20}
+                    onChange={(_, newValue) => setGrade(newValue || 1)}
+                    max={5}
                     size="large"
                     sx={{ mb: 1 }}
                   />
                   <Typography variant="body2" color="text.secondary">
-                    {grade}/20
+                    {grade} étoile{grade > 1 ? 's' : ''} sur 5
                   </Typography>
                 </Box>
 

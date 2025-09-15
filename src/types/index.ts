@@ -37,7 +37,7 @@ export interface Exercise {
   type: ExerciseType;
   title: string;
   description: string;
-  timeLimit: number; // in minutes
+  timeLimit?: number; // in minutes - optional
   createdAt: Date;
 }
 
@@ -62,7 +62,7 @@ export interface Grade {
   id: string;
   submissionId: string;
   teacherId: string;
-  grade: number;
+  grade: number; // 1-5 stars
   feedback?: string;
   gradedAt: Date;
 }

@@ -73,7 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           </Typography>
 
           {/* Teacher Management Link */}
-          {currentUser && (currentUser.role === 'teacher' || currentUser.role === 'admin') && (
+          {currentUser && (
             <>
               <Button
                 color="inherit"
@@ -83,14 +83,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
               >
                 Toutes les Leçons
               </Button>
-              <Button
-                color="inherit"
-                startIcon={<Settings />}
-                onClick={() => navigate('/teacher-management')}
-                sx={{ mr: 2 }}
-              >
-                Gestion
-              </Button>
+              {(currentUser.role === 'teacher' || currentUser.role === 'admin') && (
+                <Button
+                  color="inherit"
+                  startIcon={<Settings />}
+                  onClick={() => navigate('/teacher-management')}
+                  sx={{ mr: 2 }}
+                >
+                  Gestion
+                </Button>
+              )}
             </>
           )}
           

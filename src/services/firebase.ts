@@ -391,6 +391,23 @@ export const submissionService = {
       } as Submission;
     }
     return null;
+  },
+
+  async getSubmissionsByStudentAndExercise(studentId: string, exerciseId: string): Promise<Submission[]> {
+    const q = query(
+      collection(db, COLLECTIONS.SUBMISSIONS),
+      where('studentId', '==', studentId),
+      where('exerciseId', '==', exerciseId)
+    );
+    const submissionsSnapshot = await getDocs(q);
+    const submissions = submissionsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      submittedAt: doc.data().submittedAt.toDate()
+    } as Submission));
+    
+    // Sort by submission date (most recent first)
+    return submissions.sort((a, b) => b.submittedAt.getTime() - a.submittedAt.getTime());
   }
 };
 

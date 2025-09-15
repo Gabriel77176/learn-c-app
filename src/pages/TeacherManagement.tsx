@@ -31,11 +31,17 @@ import {
   lessonService,
   userService,
   submissionService,
-  gradeService,
   exerciseService
 } from '../services/firebase';
 import { Lesson, User, Submission } from '../types';
 import { useNavigate, useLocation } from 'react-router-dom';
+
+interface GroupedSubmission extends Submission {
+  exerciseTitle: string;
+  studentName: string;
+  attemptCount: number;
+  allSubmissionIds: string[];
+}
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -59,7 +65,7 @@ const TeacherManagement: React.FC = () => {
   });
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [students, setStudents] = useState<User[]>([]);
-  const [submissions, setSubmissions] = useState<(Submission & { exerciseTitle: string; studentName: string })[]>([]);
+  const [submissions, setSubmissions] = useState<GroupedSubmission[]>([]);
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; type: string; id: string; name: string }>({
     open: false,
     type: '',
@@ -86,32 +92,46 @@ const TeacherManagement: React.FC = () => {
       const studentsData = await userService.getUsersByRole('student');
       setStudents(studentsData);
       
-      // Load submissions with additional info
+      // Load submissions with additional info and group by student+exercise
       console.log('Loading submissions...');
-      const submissionsData: (Submission & { exerciseTitle: string; studentName: string })[] = [];
+      const submissionGroups = new Map<string, GroupedSubmission>();
       
       for (const lesson of lessonsData) {
         const exercises = await exerciseService.getExercisesByLesson(lesson.id);
         for (const exercise of exercises) {
           const exerciseSubmissions = await submissionService.getSubmissionsByExercise(exercise.id);
+          
+          // Group submissions by student for this exercise
+          const studentSubmissions = new Map<string, Submission[]>();
           for (const submission of exerciseSubmissions) {
-            const student = studentsData.find(s => s.id === submission.studentId);
-            console.log('Submission data:', {
-              id: submission.id,
-              answerText: submission.answerText,
-              selectedOptions: submission.selectedOptions,
-              exerciseTitle: exercise.title,
-              studentName: student?.name
-            });
-            submissionsData.push({
-              ...submission,
-              exerciseTitle: exercise.title,
-              studentName: student?.name || 'Student inconnu'
-            });
+            const studentId = submission.studentId;
+            if (!studentSubmissions.has(studentId)) {
+              studentSubmissions.set(studentId, []);
+            }
+            studentSubmissions.get(studentId)!.push(submission);
           }
+          
+          // Create grouped submissions (most recent per student+exercise)
+          studentSubmissions.forEach((submissions, studentId) => {
+            const student = studentsData.find(s => s.id === studentId);
+            const sortedSubmissions = submissions.sort((a: Submission, b: Submission) => 
+              b.submittedAt.getTime() - a.submittedAt.getTime()
+            );
+            const mostRecent = sortedSubmissions[0];
+            
+            const groupKey = `${studentId}-${exercise.id}`;
+            submissionGroups.set(groupKey, {
+              ...mostRecent,
+              exerciseTitle: exercise.title,
+              studentName: student?.name || 'Student inconnu',
+              attemptCount: submissions.length,
+              allSubmissionIds: submissions.map((s: Submission) => s.id)
+            });
+          });
         }
       }
       
+      const submissionsData = Array.from(submissionGroups.values());
       console.log('Total submissions loaded:', submissionsData.length);
       setSubmissions(submissionsData);
       
@@ -289,7 +309,7 @@ const TeacherManagement: React.FC = () => {
                 <TableRow>
                   <TableCell>Exercice</TableCell>
                   <TableCell>Étudiant</TableCell>
-                  <TableCell>Réponse</TableCell>
+                  <TableCell>Tentatives</TableCell>
                   <TableCell>Soumis le</TableCell>
                   <TableCell>Durée</TableCell>
                   <TableCell>Actions</TableCell>
@@ -297,33 +317,35 @@ const TeacherManagement: React.FC = () => {
               </TableHead>
               <TableBody>
                 {submissions.map((submission) => (
-                  <TableRow key={submission.id}>
+                  <TableRow key={`${submission.studentId}-${submission.exerciseId}`}>
                     <TableCell>{submission.exerciseTitle}</TableCell>
                     <TableCell>{submission.studentName}</TableCell>
                     <TableCell>
-                      <Box sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {submission.answerText ? (
-                          <>
-                            {submission.answerText.substring(0, 50)}
-                            {submission.answerText.length > 50 && '...'}
-                          </>
-                        ) : submission.selectedOptions ? (
-                          `QCM: ${submission.selectedOptions.join(', ')}`
-                        ) : (
-                          <em style={{ color: '#999' }}>Pas de réponse</em>
-                        )}
-                      </Box>
+                      <Typography variant="body2" color="primary">
+                        {submission.attemptCount} tentative{submission.attemptCount > 1 ? 's' : ''}
+                      </Typography>
                     </TableCell>
                     <TableCell>{submission.submittedAt.toLocaleDateString()}</TableCell>
                     <TableCell>{Math.floor(submission.duration / 60)}min {submission.duration % 60}s</TableCell>
                     <TableCell>
-                      <IconButton
-                        color="primary"
-                        onClick={() => navigate(`/submission/${submission.id}`)}
-                        title="Voir et corriger"
-                      >
-                        <Visibility />
-                      </IconButton>
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'space-between', alignItems: 'center' }}>
+                        <IconButton
+                          color="primary"
+                          onClick={() => navigate(`/submission/${submission.id}`)}
+                          title="Voir la dernière soumission"
+                        >
+                          <Visibility />
+                        </IconButton>
+                        {submission.attemptCount > 1 && (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => navigate(`/exercise/${submission.exerciseId}/student/${submission.studentId}/submissions`)}
+                          >
+                            Voir toutes ({submission.attemptCount})
+                          </Button>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))}

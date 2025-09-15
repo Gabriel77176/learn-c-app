@@ -17,7 +17,7 @@ import {
 import { ArrowBack, Save } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import { exerciseService, exerciseOptionService } from '../services/firebase';
-import { Exercise, ExerciseOption, ExerciseType } from '../types';
+import { Exercise, ExerciseType } from '../types';
 
 const EditExercise: React.FC = () => {
   const { exerciseId } = useParams<{ exerciseId: string }>();
@@ -33,7 +33,7 @@ const EditExercise: React.FC = () => {
     title: '',
     description: '',
     type: 'text' as ExerciseType,
-    timeLimit: 30
+    timeLimit: undefined as number | undefined
   });
 
   const [qcmOptions, setQcmOptions] = useState<Array<{ text: string; isCorrect: boolean }>>([
@@ -102,6 +102,11 @@ const EditExercise: React.FC = () => {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
+    
+    if (formData.timeLimit !== undefined && formData.timeLimit < 1) {
+      setError('La durée doit être d\'au moins 1 minute');
+      return;
+    }
 
     if (formData.type === 'qcm') {
       const validOptions = qcmOptions.filter(opt => opt.text.trim() !== '');
@@ -123,12 +128,13 @@ const EditExercise: React.FC = () => {
       setError('');
 
       // Update exercise
-      await exerciseService.updateExercise(exerciseId, {
+      const updateData = {
         title: formData.title.trim(),
         description: formData.description.trim(),
         type: formData.type,
-        timeLimit: formData.timeLimit
-      });
+        ...(formData.timeLimit !== undefined && { timeLimit: formData.timeLimit })
+      };
+      await exerciseService.updateExercise(exerciseId, updateData);
 
       // Update options for QCM
       if (formData.type === 'qcm') {
@@ -156,9 +162,16 @@ const EditExercise: React.FC = () => {
   const handleInputChange = (field: keyof typeof formData) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | { target: { value: unknown } }
   ) => {
+    let value = e.target.value;
+    
+    // Handle timeLimit conversion
+    if (field === 'timeLimit') {
+      value = value === '' ? undefined : parseInt(value as string);
+    }
+    
     setFormData(prev => ({
       ...prev,
-      [field]: e.target.value
+      [field]: value
     }));
   };
 
@@ -258,10 +271,11 @@ const EditExercise: React.FC = () => {
               fullWidth
               type="number"
               label="Durée (minutes)"
-              value={formData.timeLimit}
+              value={formData.timeLimit || ''}
               onChange={handleInputChange('timeLimit')}
               inputProps={{ min: 1, max: 180 }}
-              required
+              placeholder="Optionnel"
+              helperText="Laissez vide pour aucune limite de temps"
             />
           </Box>
 

@@ -36,7 +36,7 @@ const CreateExercise: React.FC = () => {
     title: '',
     description: '',
     type: 'text' as ExerciseType,
-    timeLimit: 30
+    timeLimit: undefined as number | undefined
   });
   
   const [options, setOptions] = useState<ExerciseOption[]>([
@@ -106,7 +106,7 @@ const CreateExercise: React.FC = () => {
       return false;
     }
     
-    if (formData.timeLimit < 1) {
+    if (formData.timeLimit !== undefined && formData.timeLimit < 1) {
       setError('La durée doit être d\'au moins 1 minute');
       return false;
     }
@@ -138,10 +138,14 @@ const CreateExercise: React.FC = () => {
       setError('');
       
       // Create exercise
-      const exerciseId = await exerciseService.createExercise({
+      const exerciseData = {
         lessonId,
-        ...formData
-      });
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        ...(formData.timeLimit !== undefined && { timeLimit: formData.timeLimit })
+      };
+      const exerciseId = await exerciseService.createExercise(exerciseData);
       
       // Create options for QCM
       if (formData.type === 'qcm') {
@@ -249,10 +253,17 @@ const CreateExercise: React.FC = () => {
                 fullWidth
                 type="number"
                 label="Durée (minutes)"
-                value={formData.timeLimit}
-                onChange={handleFormChange('timeLimit')}
+                value={formData.timeLimit || ''}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setFormData(prev => ({
+                    ...prev,
+                    timeLimit: value === '' ? undefined : parseInt(value)
+                  }));
+                }}
                 inputProps={{ min: 1, max: 300 }}
-                required
+                placeholder="Optionnel"
+                helperText="Laissez vide pour aucune limite de temps"
               />
             </Grid>
 

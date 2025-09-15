@@ -7,7 +7,8 @@ import {
   Button,
   Chip,
   Box,
-  IconButton
+  IconButton,
+  Rating
 } from '@mui/material';
 import {
   Quiz,
@@ -16,7 +17,9 @@ import {
   Edit,
   Delete,
   PlayArrow,
-  AccessTime
+  AccessTime,
+  Refresh,
+  Visibility
 } from '@mui/icons-material';
 import { Exercise } from '../../types';
 import { useAuth } from '../../contexts/AuthContext';
@@ -29,6 +32,8 @@ interface ExerciseCardProps {
   onDelete?: () => void;
   isCompleted?: boolean;
   userGrade?: number;
+  submissionCount?: number;
+  lastSubmissionId?: string;
 }
 
 const ExerciseCard: React.FC<ExerciseCardProps> = ({
@@ -37,7 +42,9 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
   onEdit,
   onDelete,
   isCompleted = false,
-  userGrade
+  userGrade,
+  submissionCount = 0,
+  lastSubmissionId
 }) => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
@@ -114,46 +121,90 @@ const ExerciseCard: React.FC<ExerciseCardProps> = ({
           />
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          {exercise.description}
-        </Typography>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <AccessTime fontSize="small" color="action" />
-          <Typography variant="body2" color="text.secondary">
-            Durée: {formatDuration(exercise.timeLimit)}
-          </Typography>
-        </Box>
+        {exercise.timeLimit && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <AccessTime fontSize="small" color="action" />
+            <Typography variant="body2" color="text.secondary">
+              Durée: {formatDuration(exercise.timeLimit)}
+            </Typography>
+          </Box>
+        )}
 
         {isCompleted && userGrade !== undefined && (
-          <Chip
-            label={`Note: ${userGrade}/20`}
-            color={userGrade >= 10 ? 'success' : 'error'}
-            size="small"
-            sx={{ mt: 1 }}
-          />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              Note:
+            </Typography>
+            <Rating
+              value={userGrade}
+              max={5}
+              size="small"
+              readOnly
+            />
+            <Typography variant="body2" color="text.secondary">
+              ({userGrade}/5)
+            </Typography>
+          </Box>
         )}
       </CardContent>
 
       <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-        <Box>
-          {!isCompleted && onStart && (
-            <Button
-              variant="contained"
-              startIcon={<PlayArrow />}
-              onClick={onStart}
-              size="small"
-            >
-              Commencer
-            </Button>
-          )}
-          {isCompleted && (
-            <Chip
-              label="Terminé"
-              color="success"
-              size="small"
-              variant="outlined"
-            />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Student Actions */}
+          {currentUser?.role === 'student' && (
+            <>
+              {!isCompleted && onStart && (
+                <Button
+                  variant="contained"
+                  startIcon={<PlayArrow />}
+                  onClick={onStart}
+                  size="small"
+                >
+                  Commencer
+                </Button>
+              )}
+              {isCompleted && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  <Chip
+                    label={`${submissionCount} tentative${submissionCount > 1 ? 's' : ''}`}
+                    color="success"
+                    size="small"
+                    variant="outlined"
+                  />
+                  <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Refresh />}
+                      onClick={onStart}
+                      size="small"
+                    >
+                      Réessayer
+                    </Button>
+                    {lastSubmissionId && (
+                      <Button
+                        variant="text"
+                        startIcon={<Visibility />}
+                        onClick={() => navigate(`/submission/${lastSubmissionId}`)}
+                        size="small"
+                      >
+                        Dernière
+                      </Button>
+                    )}
+                    {submissionCount > 1 && (
+                      <Button
+                        variant="text"
+                        onClick={() => navigate(`/exercise/${exercise.id}/submissions`)}
+                        size="small"
+                        sx={{ fontSize: '0.75rem' }}
+                      >
+                        Toutes ({submissionCount})
+                      </Button>
+                    )}
+                  </Box>
+                </Box>
+              )}
+            </>
           )}
         </Box>
 

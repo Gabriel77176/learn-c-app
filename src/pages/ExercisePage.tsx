@@ -9,9 +9,13 @@ import {
   DialogContent,
   DialogActions,
   Alert,
-  CircularProgress
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Chip
 } from '@mui/material';
-import { ArrowBack, PlayArrow } from '@mui/icons-material';
+import { ArrowBack, PlayArrow, ExpandMore } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import {
   exerciseService,
@@ -32,6 +36,7 @@ const ExercisePage: React.FC = () => {
   const [exercise, setExercise] = useState<Exercise | null>(null);
   const [options, setOptions] = useState<ExerciseOption[]>([]);
   const [submission, setSubmission] = useState<Submission | null>(null);
+  const [allSubmissions, setAllSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
   const [exerciseStarted, setExerciseStarted] = useState(false);
   const [timeUp, setTimeUp] = useState(false);
@@ -42,7 +47,8 @@ const ExercisePage: React.FC = () => {
     if (exerciseId) {
       loadExerciseData();
     }
-  }, [exerciseId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseId, currentUser]); // loadExerciseData is stable and doesn't need to be in deps
 
   const loadExerciseData = async () => {
     try {
@@ -64,12 +70,14 @@ const ExercisePage: React.FC = () => {
         setOptions(optionsData);
       }
 
-      // Check if student has already submitted
+      // Load student's submissions for this exercise
       if (currentUser?.role === 'student') {
         const submissions = await submissionService.getSubmissionsByExercise(exerciseId);
-        const userSubmission = submissions.find(s => s.studentId === currentUser.id);
-        if (userSubmission) {
-          setSubmission(userSubmission);
+        const userSubmissions = submissions.filter(s => s.studentId === currentUser.id);
+        setAllSubmissions(userSubmissions);
+        if (userSubmissions.length > 0) {
+          // Show the most recent submission
+          setSubmission(userSubmissions[0]);
         }
       }
     } catch (error) {
@@ -87,6 +95,14 @@ const ExercisePage: React.FC = () => {
     setExerciseStarted(true);
     setStartTime(new Date());
     setConfirmDialog(false);
+  };
+
+  const startNewAttempt = () => {
+    setSubmission(null);
+    setExerciseStarted(false);
+    setTimeUp(false);
+    setStartTime(null);
+    setConfirmDialog(true);
   };
 
   const handleTimeUp = () => {
@@ -133,6 +149,12 @@ const ExercisePage: React.FC = () => {
       // Reload submission data
       const newSubmission = await submissionService.getSubmission(submissionId);
       setSubmission(newSubmission);
+      
+      // Reload all submissions for this student
+      const submissions = await submissionService.getSubmissionsByExercise(exercise.id);
+      const userSubmissions = submissions.filter(s => s.studentId === currentUser.id);
+      setAllSubmissions(userSubmissions);
+      
       setExerciseStarted(false);
       
       alert('Votre réponse a été soumise avec succès!');
@@ -167,6 +189,7 @@ const ExercisePage: React.FC = () => {
 
   const isTeacher = currentUser?.role === 'teacher' || currentUser?.role === 'admin';
   const hasSubmitted = submission !== null;
+  
 
   return (
     <Box>
@@ -179,7 +202,7 @@ const ExercisePage: React.FC = () => {
           Retour
         </Button>
         
-        {exerciseStarted && (
+        {exerciseStarted && exercise.timeLimit && (
           <Timer
             duration={exercise.timeLimit}
             isActive={exerciseStarted && !hasSubmitted && !timeUp}
@@ -189,22 +212,33 @@ const ExercisePage: React.FC = () => {
       </Box>
 
       {/* Exercise Status */}
-      {hasSubmitted && (
+      {hasSubmitted && currentUser?.role === 'student' && !exerciseStarted && (
         <Alert 
           severity="success" 
           sx={{ mb: 3 }}
           action={
-            <Button 
-              color="inherit" 
-              size="small"
-              onClick={() => navigate(`/submission/${submission?.id}`)}
-            >
-              Voir ma soumission
-            </Button>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Button 
+                color="inherit" 
+                size="small"
+                onClick={() => navigate(`/submission/${submission?.id}`)}
+              >
+                Voir ma soumission
+              </Button>
+              <Button 
+                color="inherit" 
+                size="small"
+                variant="outlined"
+                onClick={startNewAttempt}
+              >
+                Nouvelle tentative
+              </Button>
+            </Box>
           }
         >
-          Vous avez déjà soumis votre réponse pour cet exercice.
+          Soumission #{allSubmissions.length} terminée.
           Durée: {Math.floor((submission?.duration || 0) / 60)}min {(submission?.duration || 0) % 60}s
+          {allSubmissions.length > 1 && ` • ${allSubmissions.length} tentatives au total`}
         </Alert>
       )}
 
@@ -212,6 +246,73 @@ const ExercisePage: React.FC = () => {
         <Alert severity="error" sx={{ mb: 3 }}>
           Le temps est écoulé! Votre réponse a été automatiquement soumise.
         </Alert>
+      )}
+
+      {/* Submission History */}
+      {allSubmissions.length >= 1 && currentUser?.role === 'student' && !exerciseStarted && (
+        <Accordion sx={{ mb: 3 }}>
+          <AccordionSummary expandIcon={<ExpandMore />}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', pr: 2 }}>
+              <Typography variant="h6">
+                Historique des tentatives ({allSubmissions.length})
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(`/exercise/${exerciseId}/submissions`);
+                }}
+                sx={{ ml: 2 }}
+              >
+                Voir tout
+              </Button>
+            </Box>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              {allSubmissions.map((sub, index) => (
+                <Box
+                  key={sub.id}
+                  sx={{
+                    p: 2,
+                    border: '1px solid',
+                    borderColor: index === 0 ? 'primary.main' : 'divider',
+                    borderRadius: 1,
+                    backgroundColor: index === 0 ? 'primary.50' : 'background.paper'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                    <Typography variant="subtitle2">
+                      Tentative #{allSubmissions.length - index}
+                      {index === 0 && (
+                        <Chip
+                          label="Plus récente"
+                          size="small"
+                          color="primary"
+                          sx={{ ml: 1 }}
+                        />
+                      )}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {sub.submittedAt.toLocaleDateString()} à {sub.submittedAt.toLocaleTimeString()}
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Durée: {Math.floor(sub.duration / 60)}min {sub.duration % 60}s
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => navigate(`/submission/${sub.id}`)}
+                  >
+                    Voir cette soumission
+                  </Button>
+                </Box>
+              ))}
+            </Box>
+          </AccordionDetails>
+        </Accordion>
       )}
 
       {/* Start Exercise Button */}
@@ -223,9 +324,11 @@ const ExercisePage: React.FC = () => {
           <Typography variant="body1" sx={{ mb: 3 }}>
             {exercise.description}
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Durée: {exercise.timeLimit} minutes
-          </Typography>
+          {exercise.timeLimit && (
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Durée: {exercise.timeLimit} minutes
+            </Typography>
+          )}
           <Button
             variant="contained"
             size="large"
@@ -279,9 +382,11 @@ const ExercisePage: React.FC = () => {
           <Typography>
             Êtes-vous prêt à commencer cet exercice ? Le chronomètre démarrera immédiatement.
           </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            Durée: {exercise.timeLimit} minutes
-          </Typography>
+          {exercise.timeLimit && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Durée: {exercise.timeLimit} minutes
+            </Typography>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmDialog(false)}>
